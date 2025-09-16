@@ -29,7 +29,7 @@ make qemu
 **预期输出：**
 终端将会显示QEMU启动，并成功打印出以下信息：
 ```
-Hello OS from xv6-style minimal kernel!
+Hello OS
 ```
 程序将在此处挂起。若要退出QEMU，请按组合键 **`Ctrl+A`**，然后按 **`X`**。
 
@@ -44,11 +44,12 @@ make clean
 
 本项目已配置好GDB调试支持。
 
-**第一步：在一个终端中，启动QEMU并使其暂停，等待GDB连接。**```bash
+第一步：在一个终端中，启动QEMU并使其暂停，等待GDB连接。
+```bash
 make qemu-gdb
 ```
 
-**第二步：打开一个新的终端，启动GDB客户端并加载内核符号。**
+第二步：打开一个新的终端，启动GDB客户端并加载内核符号。
 ```bash
 riscv64-unknown-elf-gdb kernel/kernel.elf```
 
