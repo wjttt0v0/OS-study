@@ -51,9 +51,11 @@ make qemu-gdb
 
 第二步：打开一个新的终端，启动GDB客户端并加载内核符号。
 ```bash
-riscv64-unknown-elf-gdb kernel/kernel.elf```
+riscv64-unknown-elf-gdb kernel/kernel.elf
+```
 
-**第三步：在GDB提示符 `(gdb)` 下，连接到QEMU。**```gdb
+第三步：在GDB提示符 `(gdb)` 下，连接到QEMU。
+```gdb
 target remote :1234
 ```
 连接成功后，你就可以使用GDB进行源码级调试了。
