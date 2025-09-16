@@ -1,7 +1,7 @@
-void uart_puts(const char *s);
+void uartputs(const char *s);
 
 void main() {
-    uart_puts("Hello OS\n");
+    uartputs("Hello OS\n");
 
     while (1);
 }

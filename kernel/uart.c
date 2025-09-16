@@ -30,7 +30,7 @@
 // A helper macro to write a value to a given register.
 #define WriteReg(reg, v) (*(Reg(reg)) = (v))
 
-void uart_putc(char c) {
+void uartputc(char c) {
   // Wait until the transmit holding register is empty.
   // We do this by continuously polling (checking) the TX_IDLE bit
   // in the Line Status Register. The loop continues as long as the
@@ -44,7 +44,7 @@ void uart_putc(char c) {
   WriteReg(THR, c);
 }
 
-void uart_puts(const char *s) {
+void uartputs(const char *s) {
   while (*s)
-    uart_putc(*s++);
+    uartputc(*s++);
 }

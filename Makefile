@@ -1,67 +1,49 @@
-# Makefile (Final Debugged Version)
+K=kernel
 
-# Set the default shell
-SHELL := /bin/bash
+OBJS := \
+    $K/entry.o \
+    $K/main.o \
+    $K/uart.o
 
-# Toolchain definitions
+
 TOOLCHAIN_PREFIX := riscv64-unknown-elf-
 CC := $(TOOLCHAIN_PREFIX)gcc
 LD := $(TOOLCHAIN_PREFIX)ld
 
-# Compiler and Linker Flags
-CFLAGS := -Wall -Werror -O0 -g -nostdlib -ffreestanding -mcmodel=medany
-LDFLAGS := -T kernel/kernel.ld
-
-# --- MODIFICATION START ---
-# Explicitly list all object files instead of using wildcard functions.
-# This is a more robust way to define sources.
-OBJS := \
-    kernel/entry.o \
-    kernel/main.o \
-    kernel/uart.o
-# --- MODIFICATION END ---
+CFLAGS := -Wall -Werror -O0 -g -Wno-main \
+          -ffreestanding -nostdlib -I. \
+          -fno-common -fno-omit-frame-pointer -mcmodel=medany \
+          $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
+LDFLAGS := -T $K/kernel.ld
 
 
-# The final kernel ELF file
-KERNEL_ELF := kernel.elf
+KERNEL := $K/kernel.elf
 
-# Default target: build the kernel
-all: $(KERNEL_ELF)
+$(KERNEL): $(OBJS) $K/kernel.ld
+	@$(LD) $(LDFLAGS) -o $@ $(OBJS)
 
-# Linker rule
-$(KERNEL_ELF): $(OBJS)
-	@echo "LD $(KERNEL_ELF)"
-	@$(LD) -o $(KERNEL_ELF) $(OBJS) $(LDFLAGS)
 
-# Compilation rule for .c files
-kernel/%.o: kernel/%.c
-	@echo "CC $<"
-	@$(CC) $(CFLAGS) -c $< -o $@
+$K/%.o: $K/%.c
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
-# Compilation rule for .S assembly files
-kernel/%.o: kernel/%.S
-	@echo "AS $<"
-	@$(CC) $(CFLAGS) -c $< -o $@
+$K/%.o: $K/%.S
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
-# Clean up build artifacts
+
 clean:
 	@echo "CLEAN"
-	@rm -f kernel/*.o $(KERNEL_ELF)
+	@rm -f $K/*.o $(KERNEL)
 
-# QEMU command and options
+
 QEMU := qemu-system-riscv64
-QEMUOPTS := -machine virt -bios none \
-            -kernel $(KERNEL_ELF) \
-            -m 128M -nographic
+QEMUOPTS := -machine virt -bios none -kernel $(KERNEL) -m 128M -nographic
 
-# Target to run the kernel in QEMU
-qemu: all
+qemu: $(KERNEL)
 	@echo "Starting QEMU..."
 	@$(QEMU) $(QEMUOPTS)
 
-# Target to run QEMU in debugging mode
-qemu-gdb: all
+qemu-gdb: $(KERNEL)
 	@echo "Starting QEMU for GDB..."
 	@$(QEMU) $(QEMUOPTS) -S -s
 
-.PHONY: all clean qemu qemu-gdb
+.PHONY: clean qemu qemu-gdb
