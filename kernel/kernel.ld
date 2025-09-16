@@ -2,7 +2,6 @@ ENTRY(_entry)
 
 SECTIONS
 {
-    /* Start execution at the QEMU default address for the virt machine */
     . = 0x80000000;
 
     .text : {
