@@ -42,7 +42,7 @@ void uartputc(char c) {
     ;
 
   WriteReg(THR, c);
-  //*((volatile unsigned char *)UART0) = c;
+  // --> *((volatile unsigned char *)(UART0 + THR)) = c;
 }
 
 void uartputs(const char *s) {
