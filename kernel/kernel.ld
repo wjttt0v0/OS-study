@@ -30,6 +30,6 @@ SECTIONS
 
     PROVIDE(end = .);
 
-    . = . + 4096 * 4; /* 16 KB stack */
-    PROVIDE(stack0 = .);
+    . = . + 4096; /* 4 KB stack */
+    PROVIDE(stacktop = .);
 }

@@ -2,7 +2,7 @@
 .global _entry
 
 _entry:
-    la sp, stack0
+    la sp, stacktop
 
     la t0, sbss
     la t1, ebss
