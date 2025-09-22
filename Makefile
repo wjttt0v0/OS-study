@@ -3,7 +3,9 @@ K=kernel
 OBJS := \
     $K/entry.o \
     $K/main.o \
-    $K/uart.o
+    $K/uart.o \
+	$K/console.o \
+	$K/printf.o
 
 
 TOOLCHAIN_PREFIX := riscv64-unknown-elf-
