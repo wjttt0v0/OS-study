@@ -1,11 +1,12 @@
 #include <stdarg.h>
 #include "defs.h"
 
+// ... (printint, digits[], panicked 变量保持不变) ...
 static char digits[] = "0123456789abcdef";
 volatile int panicked = 0;
 
-// Print a 64-bit integer in a given base.
 static void printint(long long val, int base, int sign) {
+    // ... (此函数实现不变)
     char buf[20];
     int i = 0;
     unsigned long long x;
@@ -25,13 +26,13 @@ static void printint(long long val, int base, int sign) {
         consoleputc(buf[i]);
 }
 
-// A simple kernel printf.
-void printf(const char *fmt, ...) {
-    va_list ap;
+
+// The core worker function for printf and its variants.
+// It takes a va_list, making it callable from other variadic functions.
+static void vprintf(const char *fmt, va_list ap) {
     char *s;
     int c;
 
-    va_start(ap, fmt);
     for (int i = 0; (c = fmt[i] & 0xff) != 0; i++) {
         if (c != '%') {
             consoleputc(c);
@@ -71,10 +72,33 @@ void printf(const char *fmt, ...) {
             break;
         }
     }
+}
+
+// Standard printf, now a wrapper around vprintf.
+void printf(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
     va_end(ap);
 }
 
-// Kernel panic function.
+// Color printf function.
+void printf_color(int color_code, const char *fmt, ...) {
+    va_list ap;
+
+    // 1. Print the escape code to set the color.
+    printf("\033[%dm", color_code);
+
+    // 2. Call the core vprintf worker to print the formatted string.
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
+
+    // 3. Print the escape code to reset to default color.
+    printf("\033[0m");
+}
+
+// Kernel panic function remains the same.
 void panic(const char *s) {
     panicked = 1;
     printf("kernel panic: %s\n", s);
