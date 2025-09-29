@@ -4,17 +4,6 @@
 // uart.c
 void uartinit(void);
 void uartputc(char c);
-
-// console.c
-void consoleinit(void);
-void consoleputc(char c);
-void clear_screen(void);
-void goto_xy(int x, int y);
-void clear_line(void);
-
-// printf.c
-void printf(const char *fmt, ...);
-void printf_color(int color, const char *fmt, ...);
-void panic(const char *s);
+void uartputs(const char *s);
 
 #endif // __DEFS_H__
