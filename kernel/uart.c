@@ -1,7 +1,8 @@
+#include "types.h"
 #include "defs.h"
 #define UART0 0x10000000L
 
-#define Reg(reg) ((volatile unsigned char *)(UART0 + (reg)))
+#define Reg(reg) ((volatile uchar *)(UART0 + (reg)))
 
 #define RHR 0                   // receive holding register (for input bytes)
 #define THR 0                   // transmit holding register (for output bytes)

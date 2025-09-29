@@ -1,8 +1,7 @@
+#include "types.h"
 #include "defs.h"
 
-// A private helper to print a simple unsigned int for goto_xy.
-// This avoids a dependency on printf.c.
-static void consoleputuint(unsigned int n) {
+static void consoleputuint(uint n) {
     char buf[10];
     int i = 0;
     if (n == 0) {
@@ -19,9 +18,8 @@ static void consoleputuint(unsigned int n) {
 }
 
 static void consoleputs(const char *s) {
-    while (*s) {
+    while (*s)
         consoleputc(*s++);
-    }
 }
 
 void consoleinit(void) {
@@ -37,19 +35,16 @@ void clear_screen(void) {
     consoleputs("\033[2J\033[3J\033[H");
 }
 
-// Moves the cursor to the specified row and column.
-// Note: Terminal coordinates are typically 1-based.
 void goto_xy(int x, int y) {
     consoleputs("\033[");
     consoleputuint(y);
-    consoleputs(";");
+    consoleputc(';');
     consoleputuint(x);
-    consoleputs("H");
+    consoleputc('H');
 }
 
-// Clears the current line from the cursor to the end.
 void clear_line() {
-    // \033[K: Clears from cursor to the end of the line.
+    // \033[K:  Clears from cursor to the end of the line.
     // \033[2K: Clears the entire line. We'll use this one.
     consoleputs("\033[2K");
 }

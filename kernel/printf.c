@@ -1,15 +1,14 @@
-#include <stdarg.h>
+#include "types.h"
 #include "defs.h"
+#include <stdarg.h>
 
-// ... (printint, digits[], panicked 变量保持不变) ...
 static char digits[] = "0123456789abcdef";
 volatile int panicked = 0;
 
 static void printint(long long val, int base, int sign) {
-    // ... (此函数实现不变)
     char buf[20];
     int i = 0;
-    unsigned long long x;
+    uint64 x;
 
     if (sign && val < 0) {
         consoleputc('-');
@@ -26,9 +25,6 @@ static void printint(long long val, int base, int sign) {
         consoleputc(buf[i]);
 }
 
-
-// The core worker function for printf and its variants.
-// It takes a va_list, making it callable from other variadic functions.
 static void vprintf(const char *fmt, va_list ap) {
     char *s;
     int c;
@@ -52,7 +48,7 @@ static void vprintf(const char *fmt, va_list ap) {
         case 'p':
             consoleputc('0');
             consoleputc('x');
-            printint(va_arg(ap, unsigned long), 16, 0);
+            printint(va_arg(ap, uint64), 16, 0);
             break;
         case 's':
             if ((s = va_arg(ap, char *)) == 0)
@@ -74,7 +70,6 @@ static void vprintf(const char *fmt, va_list ap) {
     }
 }
 
-// Standard printf, now a wrapper around vprintf.
 void printf(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -82,23 +77,23 @@ void printf(const char *fmt, ...) {
     va_end(ap);
 }
 
-// Color printf function.
-void printf_color(int color_code, const char *fmt, ...) {
+void printf_color(int color, const char *fmt, ...) {
     va_list ap;
 
-    // 1. Print the escape code to set the color.
-    printf("\033[%dm", color_code);
+    consoleputc('\033');
+    consoleputc('[');
+    printint(color, 10, 0);
+    consoleputc('m');
 
-    // 2. Call the core vprintf worker to print the formatted string.
     va_start(ap, fmt);
     vprintf(fmt, ap);
     va_end(ap);
 
-    // 3. Print the escape code to reset to default color.
-    printf("\033[0m");
+    const char *reset = "\033[0m";
+    while(*reset)
+        consoleputc(*reset++);
 }
 
-// Kernel panic function remains the same.
 void panic(const char *s) {
     panicked = 1;
     printf("kernel panic: %s\n", s);
