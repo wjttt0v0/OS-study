@@ -17,4 +17,13 @@ void printf(const char *fmt, ...);
 void printf_color(int color, const char *fmt, ...);
 void panic(const char *s);
 
+// kalloc.c
+void  kinit();
+void* kalloc(void);
+void  kfree(void *);
+
+// vm.c
+void  kvminit(void);
+void  kvminithart(void);
+
 #endif // __DEFS_H__
