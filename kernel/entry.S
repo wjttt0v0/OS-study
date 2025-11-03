@@ -18,7 +18,7 @@ bss_loop:
     j bss_loop
 bss_done:
 
-    call main
+    call start
 
 spin:
     j spin

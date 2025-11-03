@@ -8,7 +8,10 @@ OBJS := \
 	$K/printf.o \
 	$K/kalloc.o \
 	$K/vm.o \
-	$K/string.o
+	$K/string.o \
+	$K/start.o \
+	$K/trap.o \
+	$K/kernelvec.o
 
 
 TOOLCHAIN_PREFIX := riscv64-unknown-elf-

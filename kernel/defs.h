@@ -29,4 +29,7 @@ void  kvminithart(void);
 // string.c
 void* memset(void *dst, int c, uint n);
 
+// trap.c
+void trapinithart(void);
+
 #endif // __DEFS_H__
