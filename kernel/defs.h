@@ -26,4 +26,7 @@ void  kfree(void *);
 void  kvminit(void);
 void  kvminithart(void);
 
+// string.c
+void* memset(void *dst, int c, uint n);
+
 #endif // __DEFS_H__

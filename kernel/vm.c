@@ -1,15 +1,12 @@
 #include "types.h"
+#include "param.h"
 #include "defs.h"
 #include "memlayout.h"
 #include "riscv.h"
 
-// The kernel's page table.
 pagetable_t kernel_pagetable;
+extern char etext[];
 
-extern char etext[];  // End of kernel .text, from kernel.ld.
-
-// Find the PTE for a virtual address.
-// If alloc is non-zero, create new page-table pages if necessary.
 pte_t* walk(pagetable_t pagetable, uint64 va, int alloc) {
   for(int level = 2; level > 0; level--) {
     pte_t *pte = &pagetable[PX(level, va)];
@@ -18,16 +15,13 @@ pte_t* walk(pagetable_t pagetable, uint64 va, int alloc) {
     } else {
       if(!alloc || (pagetable = (pagetable_t)kalloc()) == 0)
         return 0;
-      // Note: xv6 uses memset, but we don't have it yet.
-      // A simple loop is fine for now.
-      for(int i = 0; i < 512; i++) pagetable[i] = 0;
+      memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(pagetable) | PTE_V;
     }
   }
   return &pagetable[PX(0, va)];
 }
 
-// Create a PTE for a virtual address mapping to a physical address.
 int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm) {
   uint64 a, last;
   pte_t *pte;
@@ -48,27 +42,32 @@ int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   return 0;
 }
 
-// Create the kernel's page table.
-void kvminit(void) {
-  kernel_pagetable = (pagetable_t) kalloc();
-  // Note: xv6 uses memset here too.
-  for(int i = 0; i < 512; i++) kernel_pagetable[i] = 0;
-
-  // Now, let's address the RWX issue!
-  // Map UART registers.
-  mappages(kernel_pagetable, UART0, PGSIZE, UART0, PTE_R | PTE_W);
-
-  // Map kernel code segment (Text). Read-Only and Executable.
-  mappages(kernel_pagetable, KERNBASE, (uint64)etext - KERNBASE, KERNBASE, PTE_R | PTE_X);
-
-  // Map kernel data segment. Read-Write.
-  // Start mapping from the page *after* etext to avoid overlap.
-  uint64 data_start = PGROUNDUP((uint64)etext);
-  mappages(kernel_pagetable, data_start, PHYSTOP - data_start, data_start, PTE_R | PTE_W);
+void kvmmap(pagetable_t kpgtbl, uint64 va, uint64 sz, uint64 pa, int perm) {
+  if(mappages(kpgtbl, va, sz, pa, perm) != 0)
+    panic("kvmmap");
 }
 
-// Switch to the kernel page table.
-void kvminithart() {
+pagetable_t kvmmake(void) {
+  pagetable_t kpgtbl;
+
+  kpgtbl = (pagetable_t) kalloc();
+  if (kpgtbl == 0)
+    panic("kvmmake: out of memory");
+  
+  memset(kpgtbl, 0, PGSIZE);
+
+  kvmmap(kpgtbl, UART0, PGSIZE, UART0, PTE_R | PTE_W);
+  kvmmap(kpgtbl, KERNBASE, (uint64)etext - KERNBASE, KERNBASE, PTE_R | PTE_X);
+  kvmmap(kpgtbl, (uint64)etext, PHYSTOP - (uint64)etext, (uint64)etext, PTE_R | PTE_W);
+
+  return kpgtbl;
+}
+
+void kvminit(void) {
+  kernel_pagetable = kvmmake();
+}
+
+void kvminithart(void) {
   w_satp(MAKE_SATP(kernel_pagetable));
   sfence_vma();
 }

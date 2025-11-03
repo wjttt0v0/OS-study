@@ -7,7 +7,8 @@ OBJS := \
 	$K/console.o \
 	$K/printf.o \
 	$K/kalloc.o \
-	$K/vm.o
+	$K/vm.o \
+	$K/string.o
 
 
 TOOLCHAIN_PREFIX := riscv64-unknown-elf-
