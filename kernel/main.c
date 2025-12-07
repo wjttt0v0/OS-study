@@ -1,141 +1,106 @@
-// kernel/main.c
+// kernel/main.c (FOR MEMORY MANAGEMENT LAB - PPT ALIGNED)
 #include "types.h"
-#include "param.h"
 #include "defs.h"
-#include "memlayout.h"
 #include "riscv.h"
 
-// --- Global variables & externs ---
-extern volatile int ticks;
-extern char stack0[];
+// --- Test functions based on PPT ---
 
-// --- Test function declarations ---
-void run_all_tests(void);
-void delay_seconds(int secs);
+// Renamed kalloc/kfree to match PPT's test case.
+#define alloc_page() kalloc()
+#define free_page(p) kfree(p)
 
-// --- Kernel's main entry point ---
+void test_physical_memory(void) {
+    printf("[TEST] Physical memory allocator...\n");
+
+    // 测试基本分配和释放
+    void *page1 = alloc_page();
+    void *page2 = alloc_page();
+    assert(page1 != 0 && page2 != 0);
+    assert(page1 != page2);
+
+    // 页对齐检查
+    assert(((uint64)page1 & 0xFFF) == 0);
+    printf("  - Allocation & Alignment: OK\n");
+
+    // 测试数据写入
+    *(int*)page1 = 0x12345678;
+    assert(*(int*)page1 == 0x12345678);
+    printf("  - Data Integrity: OK\n");
+
+    // 测试释放和重新分配
+    free_page(page1);
+    void *page3 = alloc_page();
+    assert(page3 == page1); // Our allocator should immediately reuse the freed page
+    printf("  - Free & Re-allocation: OK\n");
+
+    free_page(page2);
+    free_page(page3);
+    
+    printf_color(GREEN, "[OK] Physical memory test passed.\n\n");
+}
+
+// Renamed functions and types to match PPT's test case.
+#define create_pagetable() (pagetable_t)kalloc()
+#define walk_lookup(pt, va) walk(pt, va, 0)
+#define map_page(pt, va, pa, perm) mappages(pt, va, PGSIZE, pa, perm)
+
+void test_pagetable(void) {
+    printf("[TEST] Page table functionality...\n");
+
+    pagetable_t pt = create_pagetable();
+    assert(pt != 0);
+    memset(pt, 0, PGSIZE);
+
+    // 测试基本映射
+    uint64 va = 0x1000000;
+    uint64 pa = (uint64)alloc_page();
+    assert(pa != 0);
+    assert(map_page(pt, va, pa, PTE_R | PTE_W) == 0);
+    printf("  - Basic Mapping: OK\n");
+
+    // 测试地址转换
+    pte_t *pte = walk_lookup(pt, va);
+    assert(pte != 0 && (*pte & PTE_V));
+    assert(PTE2PA(*pte) == pa);
+    printf("  - Address Translation: OK\n");
+
+    // 测试权限位
+    assert(*pte & PTE_R);
+    assert(*pte & PTE_W);
+    assert(!(*pte & PTE_X));
+    printf("  - Permission Bits: OK\n");
+
+    kfree((void*)pa);
+    kfree(pt); // Note: this doesn't free intermediate pages from walk.
+    
+    printf_color(GREEN, "[OK] Page table test passed.\n\n");
+}
+
+void test_virtual_memory(void) {
+    printf("[TEST] Virtual memory activation...\n");
+    printf("  Before enabling paging...\n");
+    kvminit();
+    kvminithart();
+    printf("  After enabling paging...\n");
+    
+    // The "tests" here are implicit: if the code continues to run
+    // and can print this message, it means code execution (R+X),
+    // data access (R+W for printf's internal buffers), and
+    // device access (R+W for UART) are all working.
+    printf_color(GREEN, "[OK] Virtual memory activated successfully.\n\n");
+}
+
 void main(void) {
-    // 1. Initialize all kernel subsystems
     consoleinit();
     clear_screen();
     kinit();
-    kvminit();
-    kvminithart();
-    trapinithart();
-    intr_on();
     
-    printf_color(GREEN, "===== Kernel Interrupt & Exception Test Suite =====\n");
-    printf("All subsystems initialized. Interrupts are enabled.\n\n");
-
-    // 2. Run the full test suite
-    run_all_tests();
-
-    // 3. If all non-halting tests pass, enter idle loop
-    printf_color(GREEN, "\nAll tests passed. Entering kernel idle loop.\n");
-    for(;;)
-      ;
-}
-
-
-// --- Test Suite Controller ---
-
-
-// --- Test Function Implementations ---
-
-void test_timer_interrupts(void) {
-    printf_color(YELLOW, "[TEST 1] Timer Interrupts\n");
-    printf("  - Visual spinner will appear for 10 ticks to show liveness.\n\n");
-    goto_xy(1, 8);
-
-    int last_ticks = 0;
-    ticks = 0;
-    while(ticks <= 10) {
-        if (ticks > last_ticks) {
-            last_ticks = ticks;
-            goto_xy(1, 8);
-            printf_color(CYAN, "  [%c] System is responsive. Tick count: %d", "|/-\\"[ticks % 4], ticks);
-        }
-    }
-    goto_xy(1, 10);
-    printf_color(GREEN, "[OK] Timer interrupt test passed.\n\n");
-    delay_seconds(2);
-}
-
-void test_store_page_fault(void) {
-    printf_color(YELLOW, "[TEST 2] Store Page Fault (scause=15)\n");
-    printf("  - Attempting to write to read-only kernel code (.text segment).\n");
-    printf("  - EXPECTED: Kernel panic with scause=15.\n\n");
-    delay_seconds(3);
-
-    volatile char *p = (char *)KERNBASE;
-    *p = 'X'; // Should trigger a store page fault.
+    printf_color(YELLOW, "===== Lab 5: Memory Management Test Suite (PPT Aligned) =====\n\n");
     
-    printf_color(RED, "[FAIL] Store page fault test FAILED.\n");
-}
+    test_physical_memory();
+    test_pagetable();
+    test_virtual_memory();
 
-void test_load_page_fault(void) {
-    printf_color(YELLOW, "[TEST 3] Load Page Fault (scause=13)\n");
-    printf("  - Attempting to read from an unmapped memory address (NULL pointer).\n");
-    printf("  - EXPECTED: Kernel panic with scause=13 and stval=0.\n\n");
-    delay_seconds(3);
-    
-    // Reading from address 0, which is not mapped in our page table.
-    volatile char val = *( (char *)0x0 );
-    
-    // This line is to prevent compiler optimization.
-    // It should never be reached.
-    printf_color(RED, "[FAIL] Load page fault test FAILED. Read value: %c\n", val);
-}
-
-void test_instruction_page_fault(void) {
-    printf_color(YELLOW, "[TEST 4] Instruction Page Fault (scause=12)\n");
-    printf("  - Attempting to jump and execute code at an unmapped address.\n");
-    printf("  - EXPECTED: Kernel panic with scause=12.\n\n");
-    delay_seconds(3);
-
-    // Create a function pointer to an invalid address (e.g., NULL).
-    void (*func_ptr)(void) = (void (*)(void))0x0;
-    
-    // Call the function pointer. This will cause the CPU to try to fetch
-    // an instruction from address 0, triggering an instruction page fault.
-    func_ptr();
-    
-    printf_color(RED, "[FAIL] Instruction page fault test FAILED.\n");
-}
-
-void test_illegal_instruction(void) {
-    printf_color(YELLOW, "[TEST 5] Illegal Instruction (scause=2)\n");
-    printf("  - Deliberately executing an invalid instruction.\n");
-    printf("  - EXPECTED: Kernel panic with scause=2.\n\n");
-    delay_seconds(3);
-
-    trigger_illegal_instruction();
-    
-    printf_color(RED, "[FAIL] Illegal instruction test FAILED.\n");
-}
-
-void delay_seconds(int secs) {
-    volatile uint64 end_time = r_time() + (uint64)secs * 10000000;
-    while(r_time() < end_time);
-}
-
-void run_all_tests(void) {
-    // --- TEST SWITCHBOARD ---
-    // Comment out or uncomment calls below to run specific tests.
-    // Note: Exception tests will cause the kernel to panic, which is expected.
-    
-    // Test 1: Periodic timer interrupts (non-halting)
-    // test_timer_interrupts();
-
-    // Test 2: Store Page Fault (halting) - writing to read-only memory
-    // test_store_page_fault();
-
-    // Test 3: Load Page Fault (halting) - reading from an invalid address
-     test_load_page_fault();
-    
-    // Test 4: Instruction Page Fault (halting) - executing an invalid address
-    //test_instruction_page_fault();
-    
-    // Test 5: Illegal Instruction (halting)
-    // test_illegal_instruction();
+    printf_color(GREEN, "All memory tests completed. Halting.\n");
+    for(;;);
 }

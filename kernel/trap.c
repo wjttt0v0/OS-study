@@ -4,6 +4,8 @@
 #include "riscv.h"
 #include "defs.h"
 
+volatile int *test_flag = 0;
+
 volatile int ticks = 0;
 
 // Assembly entry point for supervisor traps, defined in kernelvec.S.
@@ -33,8 +35,12 @@ void kerneltrap() {
     // --- Interrupt ---
     if (scause == 0x8000000000000005L) { // Supervisor timer interrupt
       ticks++;
+
+       if (test_flag != 0) {
+         (*test_flag)++;
+      }
       // Uncomment the line below for visual feedback during testing.
-      printf("."); 
+      //printf("."); 
 
       // Acknowledge and set the next timer interrupt.
       // This is now a legal operation because M-mode in start.c
