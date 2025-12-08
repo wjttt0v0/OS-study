@@ -4,4 +4,6 @@
 
 kernel/kernel.elf
 
+mkfs/mkfs
+
 .vscode/
