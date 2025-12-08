@@ -1,5 +1,7 @@
 *.o
 
+*.d
+
 kernel/kernel.elf
 
 .vscode/

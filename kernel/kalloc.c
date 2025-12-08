@@ -1,8 +1,5 @@
-#include "types.h"
-#include "param.h"
 #include "defs.h"
-#include "memlayout.h"
-#include "riscv.h"
+
 
 extern char end[];
 

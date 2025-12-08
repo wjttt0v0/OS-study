@@ -10,6 +10,10 @@ r_mhartid()
   return x;
 }
 
+#define CLINT_BASE 0x2000000L
+#define CLINT_MTIMECMP(hartid) (CLINT_BASE + 0x4000 + 8*(hartid))
+#define CLINT_MTIME (CLINT_BASE + 0xBFF8)
+
 // Machine Status Register, mstatus
 
 #define MSTATUS_MPP_MASK (3L << 11) // previous mode.
@@ -354,6 +358,7 @@ trigger_illegal_instruction() {
 }
 
 typedef uint64 pte_t;
+typedef uint64 pde_t;
 typedef uint64 *pagetable_t; // 512 PTEs
 
 #endif // __ASSEMBLER__

@@ -1,6 +1,4 @@
-#include "types.h"
 #include "defs.h"
-#include "memlayout.h"
 
 #define Reg(reg) ((volatile uchar *)(UART0 + (reg)))
 

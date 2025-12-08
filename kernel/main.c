@@ -1,106 +1,37 @@
-// kernel/main.c (FOR MEMORY MANAGEMENT LAB - PPT ALIGNED)
-#include "types.h"
 #include "defs.h"
-#include "riscv.h"
 
-// --- Test functions based on PPT ---
-
-// Renamed kalloc/kfree to match PPT's test case.
-#define alloc_page() kalloc()
-#define free_page(p) kfree(p)
-
-void test_physical_memory(void) {
-    printf("[TEST] Physical memory allocator...\n");
-
-    // 测试基本分配和释放
-    void *page1 = alloc_page();
-    void *page2 = alloc_page();
-    assert(page1 != 0 && page2 != 0);
-    assert(page1 != page2);
-
-    // 页对齐检查
-    assert(((uint64)page1 & 0xFFF) == 0);
-    printf("  - Allocation & Alignment: OK\n");
-
-    // 测试数据写入
-    *(int*)page1 = 0x12345678;
-    assert(*(int*)page1 == 0x12345678);
-    printf("  - Data Integrity: OK\n");
-
-    // 测试释放和重新分配
-    free_page(page1);
-    void *page3 = alloc_page();
-    assert(page3 == page1); // Our allocator should immediately reuse the freed page
-    printf("  - Free & Re-allocation: OK\n");
-
-    free_page(page2);
-    free_page(page3);
-    
-    printf_color(GREEN, "[OK] Physical memory test passed.\n\n");
-}
-
-// Renamed functions and types to match PPT's test case.
-#define create_pagetable() (pagetable_t)kalloc()
-#define walk_lookup(pt, va) walk(pt, va, 0)
-#define map_page(pt, va, pa, perm) mappages(pt, va, PGSIZE, pa, perm)
-
-void test_pagetable(void) {
-    printf("[TEST] Page table functionality...\n");
-
-    pagetable_t pt = create_pagetable();
-    assert(pt != 0);
-    memset(pt, 0, PGSIZE);
-
-    // 测试基本映射
-    uint64 va = 0x1000000;
-    uint64 pa = (uint64)alloc_page();
-    assert(pa != 0);
-    assert(map_page(pt, va, pa, PTE_R | PTE_W) == 0);
-    printf("  - Basic Mapping: OK\n");
-
-    // 测试地址转换
-    pte_t *pte = walk_lookup(pt, va);
-    assert(pte != 0 && (*pte & PTE_V));
-    assert(PTE2PA(*pte) == pa);
-    printf("  - Address Translation: OK\n");
-
-    // 测试权限位
-    assert(*pte & PTE_R);
-    assert(*pte & PTE_W);
-    assert(!(*pte & PTE_X));
-    printf("  - Permission Bits: OK\n");
-
-    kfree((void*)pa);
-    kfree(pt); // Note: this doesn't free intermediate pages from walk.
-    
-    printf_color(GREEN, "[OK] Page table test passed.\n\n");
-}
-
-void test_virtual_memory(void) {
-    printf("[TEST] Virtual memory activation...\n");
-    printf("  Before enabling paging...\n");
-    kvminit();
-    kvminithart();
-    printf("  After enabling paging...\n");
-    
-    // The "tests" here are implicit: if the code continues to run
-    // and can print this message, it means code execution (R+X),
-    // data access (R+W for printf's internal buffers), and
-    // device access (R+W for UART) are all working.
-    printf_color(GREEN, "[OK] Virtual memory activated successfully.\n\n");
-}
+// Set to 0 to reduce boot messages.
+#define VERBOSE_BOOT 1
 
 void main(void) {
+    // Basic console and lock initialization
     consoleinit();
-    clear_screen();
-    kinit();
+    printfinit();
     
-    printf_color(YELLOW, "===== Lab 5: Memory Management Test Suite (PPT Aligned) =====\n\n");
-    
-    test_physical_memory();
-    test_pagetable();
-    test_virtual_memory();
+    #if (VERBOSE_BOOT)
+    printf("\n");
+    printf_color(GREEN, "===== Booting xv6-like Kernel =====\n");
+    #endif
 
-    printf_color(GREEN, "All memory tests completed. Halting.\n");
-    for(;;);
+    // Core kernel subsystems initialization
+    kinit();           // Physical memory allocator
+    kvminit();         // Create kernel page table
+    kvminithart();     // Enable paging
+    procinit();        // Process table
+    trapinit();        // Trap vectors for locks
+    trapinithart();    // Install kernel trap vector
+    plicinit();        // set up interrupt controller
+    plicinithart();    // ask PLIC for device interrupts
+    binit();           // Buffer cache
+    iinit();           // Inode table
+    fileinit();        // File table
+    virtio_disk_init();// emulated hard disk
+    userinit();        // Create the first user process (initcode)
+
+    #if (VERBOSE_BOOT)
+    printf_color(GREEN, "\nAll initializations complete. Starting scheduler...\n\n");
+    #endif
+
+    // Start the scheduler. It should never return.
+    scheduler();
 }

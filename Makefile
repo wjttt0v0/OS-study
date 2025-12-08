@@ -1,57 +1,147 @@
-K=kernel
+#
+# Simplified xv6-riscv Makefile
+#
 
-OBJS := \
-    $K/entry.o \
-    $K/main.o \
-    $K/uart.o \
-	$K/console.o \
-	$K/printf.o \
-	$K/kalloc.o \
-	$K/vm.o \
-	$K/string.o \
-	$K/start.o \
-	$K/trap.o \
-	$K/kernelvec.o
-
-
+# --- Toolchain ---
 TOOLCHAIN_PREFIX := riscv64-unknown-elf-
 CC := $(TOOLCHAIN_PREFIX)gcc
 LD := $(TOOLCHAIN_PREFIX)ld
+OBJDUMP := $(TOOLCHAIN_PREFIX)objdump
 
-CFLAGS := -Wall -Werror -O0 -g -Wno-main \
-          -ffreestanding -nostdlib -I. \
-          -fno-common -fno-omit-frame-pointer -mcmodel=medany \
-          $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
-LDFLAGS := -T $K/kernel.ld
+# --- Compiler Flags ---
+CFLAGS := -Wall -Werror -O -g -nostdlib -ffreestanding -fno-common -I. -Ikernel
+CFLAGS += -mcmodel=medany -fno-omit-frame-pointer
+CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
-
-KERNEL := $K/kernel.elf
-
-$(KERNEL): $(OBJS) $K/kernel.ld
-	@$(LD) $(LDFLAGS) -o $@ $(OBJS)
-
-
-$K/%.o: $K/%.c
-	@$(CC) $(CFLAGS) -c -o $@ $<
-
-$K/%.o: $K/%.S
-	@$(CC) $(CFLAGS) -c -o $@ $<
-
-
-clean:
-	@echo "CLEAN"
-	@rm -f $K/*.o $(KERNEL)
-
-
+# --- QEMU ---
 QEMU := qemu-system-riscv64
-QEMUOPTS := -machine virt -bios none -kernel $(KERNEL) -m 128M -nographic
+QEMUOPTS := -machine virt -bios none -m 128M -nographic
+QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
+QEMUOPTS += -device virtio-blk-device,drive=x0
 
-qemu: $(KERNEL)
+# ====================================================================
+# Kernel Build
+# ====================================================================
+
+K = kernel
+
+OBJS = \
+  $(K)/entry.o \
+  $(K)/start.o \
+  $(K)/main.o \
+  $(K)/uart.o \
+  $(K)/printf.o \
+  $(K)/console.o \
+  $(K)/kalloc.o \
+  $(K)/string.o \
+  $(K)/vm.o \
+  $(K)/trap.o \
+  $(K)/syscall.o \
+  $(K)/sysproc.o \
+  $(K)/sysfile.o \
+  $(K)/exec.o \
+  $(K)/proc.o \
+  $(K)/swtch.o \
+  $(K)/trampoline.o \
+  $(K)/spinlock.o \
+  $(K)/sleeplock.o \
+  $(K)/file.o \
+  $(K)/pipe.o \
+  $(K)/fs.o \
+  $(K)/log.o \
+  $(K)/bio.o \
+  $(K)/kernelvec.o \
+  $(K)/plic.o \
+  $(K)/virtio_disk.o
+
+KERNEL_ELF = $(K)/kernel.elf
+LDFLAGS := -T $(K)/kernel.ld
+
+$(KERNEL_ELF): $(OBJS) $(K)/kernel.ld
+	$(LD) $(LDFLAGS) -o $@ $(OBJS)
+
+$(K)/%.o: $(K)/%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(K)/%.o: $(K)/%.S
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# ====================================================================
+# User Space Build
+# ====================================================================
+
+U = user
+
+UPROGS = \
+    $(U)/_init \
+    $(U)/_test
+
+ULIBS = \
+    $(U)/ulib.o \
+    $(U)/printf.o \
+    $(U)/umalloc.o \
+    $(U)/usys.o
+
+$(U)/usys.S: $(U)/usys.pl $(K)/syscall.h
+	perl $< > $@
+
+$(U)/%.o: $(U)/%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(U)/usys.o: $(U)/usys.S
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(U)/_%: $(U)/%.o $(ULIBS)
+	$(LD) -N -e main -T $(U)/user.ld -o $@ $^
+	$(OBJDUMP) -S $@ > $@.asm
+
+# ====================================================================
+# mkfs (host build)
+# ====================================================================
+
+MKFS_EXEC = mkfs/mkfs
+
+HOST_CC := gcc
+
+HOST_CFLAGS = -Wall -Werror -I.
+
+$(MKFS_EXEC): mkfs/mkfs.c $(K)/fs.h $(K)/param.h
+	# CRITICAL FIX: Ensure $(HOST_CC) is at the beginning of the command.
+	$(HOST_CC) $(HOST_CFLAGS) -o $@ mkfs/mkfs.c
+
+# ====================================================================
+# File System Image
+# ====================================================================
+
+fs.img: $(MKFS_EXEC) $(UPROGS)
+	# This command will now work because $(MKFS_EXEC) will be correctly built.
+	./$(MKFS_EXEC) fs.img $(UPROGS)
+
+# ====================================================================
+# Top-level Targets
+# ====================================================================
+
+all: $(KERNEL_ELF) $(UPROGS) $(MKFS) fs.img
+
+qemu: all
 	@echo "Starting QEMU..."
-	@$(QEMU) $(QEMUOPTS)
+	$(QEMU) $(QEMUOPTS) -kernel $(KERNEL_ELF)
 
-qemu-gdb: $(KERNEL)
-	@echo "Starting QEMU for GDB..."
-	@$(QEMU) $(QEMUOPTS) -S -s
+qemu-gdb: all
+	@echo "Starting QEMU (GDB)..."
+	$(QEMU) $(QEMUOPTS) -kernel $(KERNEL_ELF) -S -s
 
-.PHONY: clean qemu qemu-gdb
+
+# ====================================================================
+# Clean Target
+# ====================================================================
+clean:
+	@echo "Cleaning project..."
+	rm -f $(K)/*.o $(K)/*.d $(KERNEL_ELF) \
+	  initcode initcode.o initcode.out \
+	  user/*.o user/*.d user/*.asm user/usys.S \
+	  user/_* \
+	  fs.img \
+	  $(MKFS_EXEC)
+
+.PHONY: all qemu qemu-gdb clean

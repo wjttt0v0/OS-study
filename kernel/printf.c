@@ -1,9 +1,14 @@
-#include "types.h"
 #include "defs.h"
 #include <stdarg.h>
 
 static char digits[] = "0123456789abcdef";
-volatile int panicked = 0;
+volatile int panicking = 0; // printing a panic message
+volatile int panicked = 0; // spinning forever at end of a panic
+
+// lock to avoid interleaving concurrent printf's.
+static struct {
+  struct spinlock lock;
+} pr;
 
 static void printint(long long val, int base, int sign) {
     char buf[20];
@@ -99,4 +104,10 @@ void panic(const char *s) {
     printf("kernel panic: %s\n", s);
     for (;;)
         ;
+}
+
+void
+printfinit(void)
+{
+  initlock(&pr.lock, "pr");
 }

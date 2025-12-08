@@ -1,6 +1,3 @@
-#include "types.h"
-#include "param.h"
-#include "riscv.h"
 #include "defs.h"
 
 void main(void);
@@ -53,5 +50,9 @@ static void timerinit() {
   
     // Set the first timer interrupt.
     uint64 interval = 1000000;
-    w_stimecmp(r_time() + interval);
+    //w_stimecmp(r_time() + interval);
+
+    volatile uint64 *mtime = (uint64*)CLINT_MTIME;
+    volatile uint64 *mtimecmp = (uint64*)CLINT_MTIMECMP(r_mhartid());
+    *mtimecmp = *mtime + interval;
 }
