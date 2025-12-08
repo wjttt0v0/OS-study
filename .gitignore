@@ -7,3 +7,5 @@ kernel/kernel.elf
 mkfs/mkfs
 
 .vscode/
+
+fs.img
