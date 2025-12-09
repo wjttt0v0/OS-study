@@ -2,6 +2,10 @@
 
 *.d
 
+*.sym
+
+_*
+
 *.asm
 
 kernel/kernel.elf

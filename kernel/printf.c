@@ -87,13 +87,21 @@ static void vprintf(const char *fmt, va_list ap) {
 
 void printf(const char *fmt, ...) {
     va_list ap;
+    if(panicking == 0)
+        acquire(&pr.lock);
+
     va_start(ap, fmt);
     vprintf(fmt, ap);
     va_end(ap);
+
+    if(panicking == 0)
+        release(&pr.lock);
 }
 
 void printf_color(int color, const char *fmt, ...) {
     va_list ap;
+    if(panicking == 0)
+        acquire(&pr.lock);
 
     consoleputc('\033');
     consoleputc('[');
@@ -107,6 +115,9 @@ void printf_color(int color, const char *fmt, ...) {
     const char *reset = "\033[0m";
     while(*reset)
         consoleputc(*reset++);
+    
+    if(panicking == 0)
+        release(&pr.lock);
 }
 
 void panic(const char *s) {

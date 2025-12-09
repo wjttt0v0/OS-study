@@ -7,43 +7,65 @@
 #include "defs.h"
 
 struct spinlock tickslock;
-volatile uint ticks;
+uint ticks;
 
-extern char trampoline[], uservec[], userret[];
+extern char trampoline[], uservec[];
 void kernelvec();
 
 static void print_exception_details(uint64, uint64, uint64);
-static int devintr(void);
-void usertrapret(void);
-void clockintr(void);
+static int devintr();
 
-void trapinit(void) { initlock(&tickslock, "time"); }
-void trapinithart(void) { w_stvec((uint64)kernelvec); }
+void trapinit(void) { 
+  initlock(&tickslock, "time"); 
+}
 
-void usertrap(void) {
+void trapinithart(void) { 
+  w_stvec((uint64)kernelvec); 
+}
+
+uint64 usertrap(void) {
   int which_dev = 0;
-  if((r_sstatus() & SSTATUS_SPP) != 0) panic("usertrap: not from user mode");
+  if((r_sstatus() & SSTATUS_SPP) != 0)
+    panic("usertrap: not from user mode");
+
   w_stvec((uint64)kernelvec);
+
   struct proc *p = myproc();
+
   p->trapframe->epc = r_sepc();
+  
   if(r_scause() == 8){
-    if(p->killed) exit(-1);
+    if(killed(p)) kexit(-1);
+
     p->trapframe->epc += 4;
     intr_on();
     syscall();
-  } else if((which_dev = devintr()) != 0){}
+  }
+  else if((which_dev = devintr()) != 0){
+
+  }
   else {
     printf_color(RED, "\n>>> USER EXCEPTION <<<\n");
     printf("  Process %d (%s) triggered.\n", p->pid, p->name);
     print_exception_details(r_scause(), r_sepc(), r_stval());
-    p->killed = 1;
+    setkilled(p);
   }
-  if(p->killed) exit(-1);
-  if(which_dev == 2) yield();
-  usertrapret();
+  if(killed(p))
+    kexit(-1);
+
+  if(which_dev == 2)
+    yield();
+
+  prepare_return();
+
+  // the user page table to switch to, for trampoline.S
+  uint64 satp = MAKE_SATP(p->pagetable);
+
+  // return to trampoline.S; satp value in a0.
+  return satp;
 }
 
-void usertrapret(void) {
+void prepare_return(void) {
   struct proc *p = myproc();
   intr_off();
   w_stvec(TRAMPOLINE + (uservec - trampoline));
@@ -56,37 +78,77 @@ void usertrapret(void) {
   x |= SSTATUS_SPIE;
   w_sstatus(x);
   w_sepc(p->trapframe->epc);
-  uint64 fn = TRAMPOLINE + (userret - trampoline);
-  ((void (*)(uint64, uint64))fn)(TRAPFRAME, (uint64)(p->pagetable));
+  //uint64 fn = TRAMPOLINE + (userret - trampoline);
+  //((void (*)(uint64, uint64))fn)(TRAPFRAME, (uint64)(p->pagetable));
 }
 
 void kerneltrap() {
   uint64 sepc = r_sepc();
   uint64 sstatus = r_sstatus();
   int which_dev = 0;
-  if((sstatus & SSTATUS_SPP) == 0) panic("kerneltrap: not from supervisor mode");
-  if(intr_get() != 0) panic("kerneltrap: interrupts enabled");
+  if((sstatus & SSTATUS_SPP) == 0)
+    panic("kerneltrap: not from supervisor mode");
+  if(intr_get() != 0)
+    panic("kerneltrap: interrupts enabled");
+
   if((which_dev = devintr()) == 0){
     printf_color(RED, "\n>>> KERNEL EXCEPTION <<<\n");
     print_exception_details(r_scause(), sepc, r_stval());
     panic("Kernel exception");
   }
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING) yield();
+  if(which_dev == 2 && myproc() != 0)
+    yield();
   w_sepc(sepc);
   w_sstatus(sstatus);
 }
 
 void clockintr(void) {
-  acquire(&tickslock);
-  ticks++;
-  wakeup((void*)&ticks);
-  release(&tickslock);
+  if(cpuid() == 0){
+    acquire(&tickslock);
+    ticks++;
+    wakeup(&ticks);
+    release(&tickslock);
+  }
+
+  // ask for the next timer interrupt. this also clears
+  // the interrupt request. 1000000 is about a tenth
+  // of a second.
+  w_stimecmp(r_time() + 1000000);
 }
 
 static int devintr(void) {
   uint64 scause = r_scause();
-  if(scause == 0x8000000000000005L){ clockintr(); return 2; }
-  return 0;
+
+  if(scause == 0x8000000000000009L){
+    // this is a supervisor external interrupt, via PLIC.
+
+    // irq indicates which device interrupted.
+    int irq = plic_claim();
+
+    if(irq == UART0_IRQ){
+      //uartintr();
+      panic("uartintr");
+    } else 
+    if(irq == VIRTIO0_IRQ){
+      virtio_disk_intr();
+    } else if(irq){
+      printf("unexpected interrupt irq=%d\n", irq);
+    }
+
+    // the PLIC allows each device to raise at most one
+    // interrupt at a time; tell the PLIC the device is
+    // now allowed to interrupt again.
+    if(irq)
+      plic_complete(irq);
+
+    return 1;
+  } else if(scause == 0x8000000000000005L){
+    // timer interrupt.
+    clockintr();
+    return 2;
+  } else {
+    return 0;
+  }
 }
 
 static void print_exception_details(uint64 scause, uint64 sepc, uint64 stval) {

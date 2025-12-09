@@ -1,36 +1,33 @@
-#
-# Simplified xv6-riscv Makefile
-#
+# ================================================================
+# Toolchain
+# ================================================================
+TOOLPREFIX = riscv64-unknown-elf-
 
-# --- Toolchain ---
-TOOLCHAIN_PREFIX := riscv64-unknown-elf-
-CC := $(TOOLCHAIN_PREFIX)gcc
-LD := $(TOOLCHAIN_PREFIX)ld
-OBJDUMP := $(TOOLCHAIN_PREFIX)objdump
+CC      = $(TOOLPREFIX)gcc
+LD      = $(TOOLPREFIX)ld
+AS      = $(TOOLPREFIX)as
+OBJDUMP = $(TOOLPREFIX)objdump
+OBJCOPY = $(TOOLPREFIX)objcopy
 
-# --- Compiler Flags ---
-CFLAGS := -Wall -Werror -O -g -nostdlib -ffreestanding -fno-common -I. -Ikernel
-CFLAGS += -mcmodel=medany -fno-omit-frame-pointer
-CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
+# ================================================================
+# Flags
+# ================================================================
+COMMON_FLAGS = -march=rv64gc -ffreestanding -nostdlib -mcmodel=medany \
+               -fno-omit-frame-pointer -ggdb -gdwarf-2
 
-# --- QEMU ---
-ifndef CPUS
-CPUS := 1
-endif
+CFLAGS = -Wall -Werror -Wno-unknown-attributes -O0 \
+         -MD $(COMMON_FLAGS) \
+         -I.
 
-QEMU := qemu-system-riscv64
-QEMUOPTS := -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
-QEMUOPTS += -global virtio-mmio.force-legacy=false
-QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
-QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+KERNEL_LDFLAGS = -T $(K)/kernel.ld -z max-page-size=4096
+USER_LDFLAGS   = -T $(U)/user.ld   -z max-page-size=4096
 
-# ====================================================================
+# ================================================================
 # Kernel Build
-# ====================================================================
-
+# ================================================================
 K = kernel
 
-OBJS := \
+KOBJS = \
     $(K)/entry.o \
     $(K)/start.o \
     $(K)/main.o \
@@ -60,26 +57,22 @@ OBJS := \
     $(K)/sysfile.o
 
 KERNEL_ELF = $(K)/kernel.elf
-LDFLAGS := -T $(K)/kernel.ld
 
-$(KERNEL_ELF): $(OBJS) $(K)/kernel.ld
-	$(LD) $(LDFLAGS) -o $@ $(OBJS)
+$(KERNEL_ELF): $(KOBJS)
+	$(LD) $(KERNEL_LDFLAGS) -o $(KERNEL_ELF) $(KOBJS)
+	$(OBJDUMP) -S $(KERNEL_ELF) > $(KERNEL_ELF).asm
+	$(OBJDUMP) -t $(KERNEL_ELF) | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(KERNEL_ELF).sym
 
 $(K)/%.o: $(K)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(K)/%.o: $(K)/%.S
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) -march=rv64gc -g -c -o $@ $<
 
-# ====================================================================
-# User Space Build
-# ====================================================================
-
+# ================================================================
+# User Build
+# ================================================================
 U = user
-
-UPROGS = \
-    $(U)/_init \
-    $(U)/_test
 
 ULIBS = \
     $(U)/ulib.o \
@@ -87,66 +80,64 @@ ULIBS = \
     $(U)/umalloc.o \
     $(U)/usys.o
 
-$(U)/usys.S: $(U)/usys.pl $(K)/syscall.h
-	perl $< > $@
+UPROGS = \
+    $(U)/_init \
+    $(U)/_test
 
-$(U)/%.o: $(U)/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(U)/usys.S: $(U)/usys.pl
+	perl $(U)/usys.pl > $(U)/usys.S
 
 $(U)/usys.o: $(U)/usys.S
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+$(U)/%.o: $(U)/%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 $(U)/_%: $(U)/%.o $(ULIBS)
-	$(LD) -N -e main -T $(U)/user.ld -o $@ $^
+	$(LD) $(USER_LDFLAGS) -o $@ $< $(ULIBS)
 	$(OBJDUMP) -S $@ > $@.asm
 
-# ====================================================================
-# mkfs (host build)
-# ====================================================================
+# ================================================================
+# mkfs
+# ================================================================
+mkfs/mkfs: mkfs/mkfs.c $(K)/fs.h $(K)/param.h
+	gcc -Wno-unknown-attributes -I. -o mkfs/mkfs mkfs/mkfs.c
 
-MKFS_EXEC = mkfs/mkfs
-
-HOST_CC := gcc
-
-HOST_CFLAGS = -Wall -Werror -I.
-
-$(MKFS_EXEC): mkfs/mkfs.c $(K)/fs.h $(K)/param.h
-	# CRITICAL FIX: Ensure $(HOST_CC) is at the beginning of the command.
-	$(HOST_CC) $(HOST_CFLAGS) -o $@ mkfs/mkfs.c
-
-# ====================================================================
+# ================================================================
 # File System Image
-# ====================================================================
+# ================================================================
+fs.img: mkfs/mkfs $(UPROGS)
+	mkfs/mkfs fs.img $(UPROGS)
 
-fs.img: $(MKFS_EXEC) $(UPROGS)
-	# This command will now work because $(MKFS_EXEC) will be correctly built.
-	./$(MKFS_EXEC) fs.img $(UPROGS)
+# ================================================================
+# QEMU
+# ================================================================
+CPUS := 1
+QEMU := qemu-system-riscv64
 
-# ====================================================================
-# Top-level Targets
-# ====================================================================
+QEMUOPTS := -machine virt -bios none -kernel $K/kernel.elf -m 128M -smp $(CPUS) -nographic
+QEMUOPTS += -global virtio-mmio.force-legacy=false
+QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
+QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
-all: $(KERNEL_ELF) $(UPROGS) $(MKFS) fs.img
+all: $(KERNEL_ELF) fs.img
 
 qemu: all
 	@echo "Starting QEMU..."
-	$(QEMU) $(QEMUOPTS) -kernel $(KERNEL_ELF)
+	$(QEMU) $(QEMUOPTS)
 
 qemu-gdb: all
 	@echo "Starting QEMU (GDB)..."
-	$(QEMU) $(QEMUOPTS) -kernel $(KERNEL_ELF) -S -s
-
-
-# ====================================================================
-# Clean Target
-# ====================================================================
+	$(QEMU) $(QEMUOPTS) -S -s
+# ================================================================
+# Clean
+# ================================================================
 clean:
-	@echo "Cleaning project..."
-	rm -f $(K)/*.o $(K)/*.d $(KERNEL_ELF) \
-	  initcode initcode.o initcode.out \
-	  user/*.o user/*.d user/*.asm user/usys.S \
-	  user/_* \
-	  fs.img \
-	  $(MKFS_EXEC)
+	rm -f $(K)/*.o $(K)/*.d $(K)/*.asm $(K)/*.sym $(K)/kernel
+	rm -f $(U)/*.o $(U)/*.d $(U)/*.asm $(U)/_*
+	rm -f mkfs/mkfs fs.img
+	rm -f $(U)/usys.S
+
+-include $(K)/*.d $(U)/*.d
 
 .PHONY: all qemu qemu-gdb clean

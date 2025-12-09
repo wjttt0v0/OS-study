@@ -179,13 +179,14 @@ void            syscall();
 // trap.c
 void            trapinit(void);
 void            trapinithart(void);
-extern volatile uint ticks;
+extern uint     ticks;
 extern struct spinlock tickslock;
 void            prepare_return(void);
 
 // uart.c
 void            uartinit(void);
 void            uartputc(char);
+void            uartwrite(char [], int);
 
 // vm.c
 void            kvminit(void);

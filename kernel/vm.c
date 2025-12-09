@@ -105,8 +105,10 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     if(*pte & PTE_V) {
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
-      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0) {
+        printf("[walk] kalloc for new page table failed!\n");
         return 0;
+      }
       memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(pagetable) | PTE_V;
     }
@@ -160,8 +162,10 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   a = va;
   last = va + size - PGSIZE;
   for(;;){
-    if((pte = walk(pagetable, a, 1)) == 0)
+    if((pte = walk(pagetable, a, 1)) == 0) {
+      printf("[mappages] walk failed!\n");
       return -1;
+    }
     if(*pte & PTE_V)
       panic("mappages: remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
@@ -216,6 +220,8 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 uint64
 uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
 {
+  printf("[uvmalloc] oldsz=%p, newsz=%p\n", oldsz, newsz);
+
   char *mem;
   uint64 a;
 
@@ -226,11 +232,15 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
   for(a = oldsz; a < newsz; a += PGSIZE){
     mem = kalloc();
     if(mem == 0){
+      printf("[uvmalloc] kalloc failed!\n"); 
       uvmdealloc(pagetable, a, oldsz);
       return 0;
     }
     memset(mem, 0, PGSIZE);
+    printf("[uvmalloc] Mapping va %p to pa %p\n", a, mem);
+
     if(mappages(pagetable, a, PGSIZE, (uint64)mem, PTE_R|PTE_U|xperm) != 0){
+      printf("[uvmalloc] mappages failed!\n");
       kfree(mem);
       uvmdealloc(pagetable, a, oldsz);
       return 0;

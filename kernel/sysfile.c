@@ -90,6 +90,13 @@ sys_write(void)
   argint(2, &n);
   if(argfd(0, 0, &f) < 0)
     return -1;
+  
+  // printf("[sys_write] fd_type=%d, count=%d\n", f->type, n);
+  // if (f->type == FD_DEVICE) {
+  //     printf("  -> Writing to DEVICE. major=%d\n", f->major);
+  // } else if (f->type == FD_INODE) {
+  //     printf("  -> Writing to INODE.\n");
+  // }
 
   return filewrite(f, p, n);
 }
@@ -313,6 +320,7 @@ sys_open(void)
   argint(1, &omode);
   if((n = argstr(0, path, MAXPATH)) < 0)
     return -1;
+  printf("[sys_open] path=%s, mode=%d\n", path, omode);
 
   begin_op();
 
@@ -401,6 +409,9 @@ sys_mknod(void)
     end_op();
     return -1;
   }
+
+  printf("[sys_mknod] path=%s, major=%d, minor=%d\n", path, major, minor);
+
   iunlockput(ip);
   end_op();
   return 0;

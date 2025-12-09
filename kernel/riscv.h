@@ -342,6 +342,12 @@ r_ra()
   return x;
 }
 
+static inline void 
+w_sscratch(uint64 x)
+{
+  asm volatile("csrw sscratch, %0" : : "r" (x));
+}
+
 // flush the TLB.
 static inline void
 sfence_vma()
