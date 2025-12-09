@@ -2,6 +2,8 @@
 
 *.d
 
+*.asm
+
 kernel/kernel.elf
 
 mkfs/mkfs
