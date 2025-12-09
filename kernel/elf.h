@@ -1,3 +1,6 @@
+#ifndef __ELF_H__
+#define __ELF_H__
+
 // Format of an ELF executable file
 #include "types.h"
 
@@ -41,3 +44,5 @@ struct proghdr {
 #define ELF_PROG_FLAG_EXEC      1
 #define ELF_PROG_FLAG_WRITE     2
 #define ELF_PROG_FLAG_READ      4
+
+#endif //__ELF_H__

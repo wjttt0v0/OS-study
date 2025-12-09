@@ -1,5 +1,15 @@
-#include "defs.h"
 #include <stdarg.h>
+
+#include "types.h"
+#include "param.h"
+#include "spinlock.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"
+#include "memlayout.h"
+#include "riscv.h"
+#include "defs.h"
+#include "proc.h"
 
 static char digits[] = "0123456789abcdef";
 volatile int panicking = 0; // printing a panic message

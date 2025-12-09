@@ -14,10 +14,15 @@ CFLAGS += -mcmodel=medany -fno-omit-frame-pointer
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
 # --- QEMU ---
+ifndef CPUS
+CPUS := 1
+endif
+
 QEMU := qemu-system-riscv64
-QEMUOPTS := -machine virt -bios none -m 128M -nographic
+QEMUOPTS := -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
+QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
-QEMUOPTS += -device virtio-blk-device,drive=x0
+QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
 # ====================================================================
 # Kernel Build
@@ -25,34 +30,34 @@ QEMUOPTS += -device virtio-blk-device,drive=x0
 
 K = kernel
 
-OBJS = \
-  $(K)/entry.o \
-  $(K)/start.o \
-  $(K)/main.o \
-  $(K)/uart.o \
-  $(K)/printf.o \
-  $(K)/console.o \
-  $(K)/kalloc.o \
-  $(K)/string.o \
-  $(K)/vm.o \
-  $(K)/trap.o \
-  $(K)/syscall.o \
-  $(K)/sysproc.o \
-  $(K)/sysfile.o \
-  $(K)/exec.o \
-  $(K)/proc.o \
-  $(K)/swtch.o \
-  $(K)/trampoline.o \
-  $(K)/spinlock.o \
-  $(K)/sleeplock.o \
-  $(K)/file.o \
-  $(K)/pipe.o \
-  $(K)/fs.o \
-  $(K)/log.o \
-  $(K)/bio.o \
-  $(K)/kernelvec.o \
-  $(K)/plic.o \
-  $(K)/virtio_disk.o
+OBJS := \
+    $(K)/entry.o \
+    $(K)/start.o \
+    $(K)/main.o \
+    $(K)/uart.o \
+    $(K)/printf.o \
+    $(K)/console.o \
+    $(K)/kalloc.o \
+    $(K)/string.o \
+    $(K)/vm.o \
+    $(K)/trap.o \
+    $(K)/kernelvec.o \
+    $(K)/swtch.o \
+    $(K)/trampoline.o \
+    $(K)/spinlock.o \
+    $(K)/sleeplock.o \
+    $(K)/proc.o \
+    $(K)/syscall.o \
+    $(K)/sysproc.o \
+    $(K)/exec.o \
+    $(K)/plic.o \
+    $(K)/virtio_disk.o \
+    $(K)/bio.o \
+    $(K)/fs.o \
+    $(K)/log.o \
+    $(K)/file.o \
+    $(K)/pipe.o \
+    $(K)/sysfile.o
 
 KERNEL_ELF = $(K)/kernel.elf
 LDFLAGS := -T $(K)/kernel.ld

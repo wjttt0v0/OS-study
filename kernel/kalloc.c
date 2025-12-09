@@ -1,4 +1,5 @@
 #include "defs.h"
+#include "memlayout.h"
 
 
 extern char end[];

@@ -3,16 +3,18 @@
 #define __DEFS_H__
 
 #include "types.h"
-#include "param.h"
 #include "riscv.h"
-#include "spinlock.h"
-#include "sleeplock.h"
-#include "fs.h"
-#include "stat.h"
-#include "proc.h"
-#include "file.h"
-#include "buf.h"
-#include "memlayout.h"
+
+struct buf;
+struct context;
+struct file;
+struct inode;
+struct pipe;
+struct proc;
+struct spinlock;
+struct sleeplock;
+struct stat;
+struct superblock;
 
 #define assert(x)                                       \
   do {                                                  \
