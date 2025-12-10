@@ -1,6 +1,15 @@
 #ifndef __DEFS_H__
 #define __DEFS_H__
 
+#include "types.h"
+#include "riscv.h"
+
+#define assert(x)                                       \
+  do {                                                  \
+    if (!(x))                                           \
+      panic("assertion failed: " #x);                   \
+  } while (0)
+
 // uart.c
 void uartinit(void);
 void uartputc(char c);
@@ -26,7 +35,13 @@ void  kfree(void *);
 void  kvminit(void);
 void  kvminithart(void);
 
+int   mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm);
+pte_t* walk(pagetable_t pagetable, uint64 va, int alloc);
+
 // string.c
 void* memset(void *dst, int c, uint n);
+
+// trap.c
+void trapinithart(void);
 
 #endif // __DEFS_H__

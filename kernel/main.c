@@ -6,79 +6,114 @@
 
 __attribute__ ((aligned (16))) char stack0[4096 * NCPU];
 
-void main(void) {
-    // ---- Stage 1: Basic Initialization ----
-    consoleinit();
-    clear_screen();
-    printf_color(YELLOW, "--- RISC-V Kernel Booting ---\n\n");
+// --- Test functions based on PPT ---
 
-    // ---- Stage 2: Physical Memory Management ----
-    printf("Initializing physical memory allocator...\n");
-    kinit();
-    printf("kinit done. Testing kalloc/kfree...\n");
-    
-    void *p1 = kalloc();
-    void *p2 = kalloc();
-    printf("  kalloc() -> p1 = %p\n", p1);
-    printf("  kalloc() -> p2 = %p\n", p2);
-    if (!p1 || !p2 || p1 == p2) {
-        panic("kalloc test failed: allocation error");
-    }
-    
-    kfree(p1);
-    void *p3 = kalloc();
-    printf("  kfree(p1); kalloc() -> p3 = %p\n", p3);
-    if (!p3 || p3 != p1) {
-        // In our simple allocator, the first freed page should be the first re-allocated one.
-        panic("kalloc test failed: free/re-alloc error");
-    }
-    kfree(p2);
-    kfree(p3);
-    printf_color(GREEN, "Physical memory allocator test passed.\n\n");
+// Renamed kalloc/kfree to match PPT's test case.
+#define alloc_page() kalloc()
+#define free_page(p) kfree(p)
 
-    // ---- Stage 3: Virtual Memory Initialization ----
-    printf("Creating kernel page table...\n");
+void test_physical_memory(void) {
+    printf("[TEST] Physical memory allocator...\n");
+
+    // 测试基本分配和释放
+    void *page1 = alloc_page();
+    void *page2 = alloc_page();
+    assert(page1 != 0 && page2 != 0);
+    assert(page1 != page2);
+
+    // 页对齐检查
+    assert(((uint64)page1 & 0xFFF) == 0);
+    printf("  - Allocation & Alignment: OK\n");
+
+    // 测试数据写入
+    *(int*)page1 = 0x12345678;
+    assert(*(int*)page1 == 0x12345678);
+    printf("  - Data Integrity: OK\n");
+
+    // 测试释放和重新分配
+    free_page(page1);
+    void *page3 = alloc_page();
+    assert(page3 == page1); // Our allocator should immediately reuse the freed page
+    printf("  - Free & Re-allocation: OK\n");
+
+    free_page(page2);
+    free_page(page3);
+    
+    printf_color(GREEN, "[OK] Physical memory test passed.\n\n");
+}
+
+// Renamed functions and types to match PPT's test case.
+#define create_pagetable() (pagetable_t)kalloc()
+#define walk_lookup(pt, va) walk(pt, va, 0)
+#define map_page(pt, va, pa, perm) mappages(pt, va, PGSIZE, pa, perm)
+
+void test_pagetable(void) {
+    printf("[TEST] Page table functionality...\n");
+
+    pagetable_t pt = create_pagetable();
+    assert(pt != 0);
+    memset(pt, 0, PGSIZE);
+
+    // 测试基本映射
+    uint64 va = 0x1000000;
+    uint64 pa = (uint64)alloc_page();
+    assert(pa != 0);
+    assert(map_page(pt, va, pa, PTE_R | PTE_W) == 0);
+    printf("  - Basic Mapping: OK\n");
+
+    // 测试地址转换
+    pte_t *pte = walk_lookup(pt, va);
+    assert(pte != 0 && (*pte & PTE_V));
+    assert(PTE2PA(*pte) == pa);
+    printf("  - Address Translation: OK\n");
+
+    // 测试权限位
+    assert(*pte & PTE_R);
+    assert(*pte & PTE_W);
+    assert(!(*pte & PTE_X));
+    printf("  - Permission Bits: OK\n");
+
+    kfree((void*)pa);
+    kfree(pt); // Note: this doesn't free intermediate pages from walk.
+    
+    printf_color(GREEN, "[OK] Page table test passed.\n\n");
+}
+
+void test_virtual_memory(void) {
+    printf("[TEST] Virtual memory activation...\n");
+    printf("  Before enabling paging...\n");
     kvminit();
-    printf("kvminit done.\n");
-
-    printf("Enabling virtual memory (paging)...\n");
     kvminithart();
-    printf_color(GREEN, "Virtual memory enabled!\n\n");
-
-    // ---- Stage 4: Post-Paging Verification ----
-    printf_color(YELLOW, "--- Post-Paging System Status ---\n\n");
-
-    // 1. Verify we can still print (implies code execution and UART access are working)
-    printf("Kernel continues to run after enabling paging. SUCCESS.\n\n");
-
-    // 2. Memory layout and permissions check
-    printf("Memory Mapping Verification:\n");
-    extern char etext[]; // from kernel.ld
-    printf("  Kernel .text (code) segment [KERNBASE, etext):\n");
-    printf("    VA Range: [%p, %p), Permissions: Read/Execute (R-X)\n", KERNBASE, etext);
+    printf("  After enabling paging...\n");
     
-    printf("  Kernel data, bss, and free memory [etext, PHYSTOP):\n");
-    printf("    VA Range: [%p, %p), Permissions: Read/Write (RW-)\n", etext, PHYSTOP);
+    printf("  Kernel runs in virtual memory. SUCCESS.\n");
 
-    printf("  UART device memory:\n");
-    printf("    VA Range: [%p, %p), Permissions: Read/Write (RW-)\n\n", UART0, UART0 + PGSIZE);
-    
-    // 3. Stack pointer verification
+    // Extra check: Stack Pointer
     uint64 sp;
     asm volatile("mv %0, sp" : "=r"(sp));
-    printf("Stack pointer verification:\n");
-    printf("  Current SP: %p\n", sp);
-    // stack0 is the bottom of the stack area. Top is stack0 + NCPU*PGSIZE
     uint64 stack_bottom = (uint64)stack0;
     uint64 stack_top = stack_bottom + NCPU * PGSIZE;
-    printf("  Expected stack range for hart 0: [%p, %p)\n", stack_bottom, stack_top);
+    
     if (sp > stack_bottom && sp <= stack_top) {
-        printf_color(GREEN, "  Stack pointer is within the expected range. SUCCESS.\n\n");
+         printf("  Stack pointer check: OK\n");
     } else {
-        printf_color(RED, "  Stack pointer is OUTSIDE the expected range. FAILED.\n\n");
+         panic("Stack pointer INVALID");
     }
 
-    // ---- Final message ----
-    printf_color(GREEN, "All tests passed. Kernel initialization complete.\n");
-    printf("Entering infinite loop (spin).\n");
+    printf_color(GREEN, "[OK] Virtual memory activated successfully.\n\n");
+}
+
+void main(void) {
+    consoleinit();
+    clear_screen();
+    kinit();
+    
+    printf_color(YELLOW, "===== Lab 5: Memory Management Test Suite =====\n\n");
+    
+    test_physical_memory();
+    test_pagetable();
+    test_virtual_memory();
+
+    printf_color(GREEN, "All memory tests completed. Halting.\n");
+    for(;;);
 }
