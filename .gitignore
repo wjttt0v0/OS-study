@@ -1,5 +1,17 @@
 *.o
 
+*.d
+
+*.sym
+
+_*
+
+*.asm
+
 kernel/kernel.elf
 
+mkfs/mkfs
+
 .vscode/
+
+fs.img
