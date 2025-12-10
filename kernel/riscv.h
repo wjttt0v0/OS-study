@@ -346,13 +346,6 @@ sfence_vma()
   asm volatile("sfence.vma zero, zero");
 }
 
-static inline void
-trigger_illegal_instruction() {
-  // A standard way to trigger an illegal instruction exception in RISC-V.
-  // The instruction 'unimp' is often encoded as all zeros.
-  asm volatile(".word 0x00000000");
-}
-
 typedef uint64 pte_t;
 typedef uint64 *pagetable_t; // 512 PTEs
 

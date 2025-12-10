@@ -1,106 +1,91 @@
-// kernel/main.c (FOR MEMORY MANAGEMENT LAB - PPT ALIGNED)
 #include "types.h"
+#include "param.h"
 #include "defs.h"
+#include "memlayout.h"
 #include "riscv.h"
 
-// --- Test functions based on PPT ---
+// 引用 trap.c 中定义的全局指针
+extern volatile int *test_flag;
 
-// Renamed kalloc/kfree to match PPT's test case.
-#define alloc_page() kalloc()
-#define free_page(p) kfree(p)
+// 适配 PPT 中的函数名
+#define get_time() r_time()
 
-void test_physical_memory(void) {
-    printf("[TEST] Physical memory allocator...\n");
+// --- PPT 截图 1: 中断功能测试 ---
+void test_timer_interrupt(void) {
+    printf("Testing timer interrupt...\n");
 
-    // 测试基本分配和释放
-    void *page1 = alloc_page();
-    void *page2 = alloc_page();
-    assert(page1 != 0 && page2 != 0);
-    assert(page1 != page2);
+    // 记录中断前的时间
+    uint64 start_time = get_time();
+    int interrupt_count = 0;
 
-    // 页对齐检查
-    assert(((uint64)page1 & 0xFFF) == 0);
-    printf("  - Allocation & Alignment: OK\n");
+    // 设置测试标志
+    // 让 trap.c 知道要把中断次数写到这个变量里
+    test_flag = &interrupt_count;
 
-    // 测试数据写入
-    *(int*)page1 = 0x12345678;
-    assert(*(int*)page1 == 0x12345678);
-    printf("  - Data Integrity: OK\n");
-
-    // 测试释放和重新分配
-    free_page(page1);
-    void *page3 = alloc_page();
-    assert(page3 == page1); // Our allocator should immediately reuse the freed page
-    printf("  - Free & Re-allocation: OK\n");
-
-    free_page(page2);
-    free_page(page3);
+    // 在时钟中断处理函数中增加计数
+    // 等待几次中断
+    while (interrupt_count < 5) {
+        // 可以在这里执行其他任务
+        printf("Waiting for interrupt %d...\n", interrupt_count + 1);
+        
+        // 简单延时
+        // 使用 volatile 防止编译器优化掉空循环
+        for (volatile int i = 0; i < 10000000; i++);
+    }
     
-    printf_color(GREEN, "[OK] Physical memory test passed.\n\n");
+    // 测试结束，清空标志，防止后续干扰
+    test_flag = 0;
+
+    uint64 end_time = get_time();
+    // 注意：这里的 %lu 用于打印 uint64
+    printf("Timer test completed: %d interrupts in %d cycles\n", 
+           interrupt_count, end_time - start_time);
 }
 
-// Renamed functions and types to match PPT's test case.
-#define create_pagetable() (pagetable_t)kalloc()
-#define walk_lookup(pt, va) walk(pt, va, 0)
-#define map_page(pt, va, pa, perm) mappages(pt, va, PGSIZE, pa, perm)
+// --- PPT 截图 2: 异常处理测试 ---
+void test_exception_handling(void) {
+    printf("Testing exception handling...\n");
 
-void test_pagetable(void) {
-    printf("[TEST] Page table functionality...\n");
+    // 测试除零异常 (如果支持)
+    // RISC-V 硬件通常不产生除零异常，而是设置标志位，这里略过
 
-    pagetable_t pt = create_pagetable();
-    assert(pt != 0);
-    memset(pt, 0, PGSIZE);
+    // 测试非法指令异常
+    printf("Triggering Illegal Instruction...\n");
 
-    // 测试基本映射
-    uint64 va = 0x1000000;
-    uint64 pa = (uint64)alloc_page();
-    assert(pa != 0);
-    assert(map_page(pt, va, pa, PTE_R | PTE_W) == 0);
-    printf("  - Basic Mapping: OK\n");
+    // 这是一个内联汇编，插入一条全0指令，必然触发非法指令异常
+    asm volatile(".word 0x00000000");
 
-    // 测试地址转换
-    pte_t *pte = walk_lookup(pt, va);
-    assert(pte != 0 && (*pte & PTE_V));
-    assert(PTE2PA(*pte) == pa);
-    printf("  - Address Translation: OK\n");
+    // 测试内存访问异常 (Load/Store Page Fault)
+    // 注意：上面的非法指令会导致 panic，所以代码执行不到这里
+    // 如果要测试这个，需要注释掉上面的非法指令
+    // volatile char *p = (char *)0x0; *p = 10; 
 
-    // 测试权限位
-    assert(*pte & PTE_R);
-    assert(*pte & PTE_W);
-    assert(!(*pte & PTE_X));
-    printf("  - Permission Bits: OK\n");
-
-    kfree((void*)pa);
-    kfree(pt); // Note: this doesn't free intermediate pages from walk.
-    
-    printf_color(GREEN, "[OK] Page table test passed.\n\n");
+    printf("Exception tests completed\n");
 }
 
-void test_virtual_memory(void) {
-    printf("[TEST] Virtual memory activation...\n");
-    printf("  Before enabling paging...\n");
-    kvminit();
-    kvminithart();
-    printf("  After enabling paging...\n");
-    
-    // The "tests" here are implicit: if the code continues to run
-    // and can print this message, it means code execution (R+X),
-    // data access (R+W for printf's internal buffers), and
-    // device access (R+W for UART) are all working.
-    printf_color(GREEN, "[OK] Virtual memory activated successfully.\n\n");
-}
-
+// --- 主入口 ---
 void main(void) {
+    // 1. 初始化
     consoleinit();
     clear_screen();
     kinit();
-    
-    printf_color(YELLOW, "===== Lab 5: Memory Management Test Suite (PPT Aligned) =====\n\n");
-    
-    test_physical_memory();
-    test_pagetable();
-    test_virtual_memory();
+    kvminit();
+    kvminithart();
+    trapinithart();
+    intr_on(); // 开启中断
 
-    printf_color(GREEN, "All memory tests completed. Halting.\n");
-    for(;;);
+    printf_color(GREEN, "Kernel initialized. Starting tests...\n\n");
+
+    // 2. 运行中断测试
+    test_timer_interrupt();
+
+    printf_color(GREEN, "\nTimer test passed. Now running exception test.\n");
+    printf_color(RED, "The system is expected to PANIC below:\n\n");
+
+    // 3. 运行异常测试 (会导致系统停止)
+    test_exception_handling();
+
+    // 理论上运行不到这里
+    for(;;) 
+        ;
 }
