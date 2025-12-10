@@ -32,7 +32,7 @@ $K/%.o: $K/%.S
 
 clean:
 	@echo "CLEAN"
-	@rm -f $K/*.o $(KERNEL)
+	@rm -f $K/*.o  $K/*.d $(KERNEL)
 
 
 QEMU := qemu-system-riscv64
