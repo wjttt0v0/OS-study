@@ -108,7 +108,7 @@ void main(void) {
     clear_screen();
     kinit();
     
-    printf_color(YELLOW, "===== Lab 5: Memory Management Test Suite =====\n\n");
+    printf_color(YELLOW, "===== Memory Management Test Suite =====\n\n");
     
     test_physical_memory();
     test_pagetable();
