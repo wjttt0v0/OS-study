@@ -1,55 +1,55 @@
-# 极简RISC-V操作系统内核
+# RISC-V OS for study
 
-本项目是一个为操作系统课程实践设计的最小化RISC-V内核。
+这是一个基于 RISC-V 64位架构的用于个人学习的操作系统内核项目。
 
-## 环境要求
+## 🛠 开发环境依赖
 
-*   **操作系统**: Linux (推荐 Ubuntu/Debian)
-*   **交叉编译器**: `gcc-riscv64-unknown-elf`
-*   **模拟器**: `qemu-system-misc`
+在 Ubuntu 20.04/22.04 下，请安装以下工具链和模拟器：
 
-## 编译与运行说明
-
-本项目使用`Makefile`进行全自动化的构建和管理。请在项目根目录下执行以下命令。
-
-### 1. 编译内核
-
-要编译所有源代码并链接生成最终的内核可执行文件 `kernel/kernel.elf`，请运行：
 ```bash
-make
+sudo apt-get update
+sudo apt-get install -y build-essential git qemu-system-misc gcc-riscv64-unknown-elf gdb-multiarch
 ```
 
-### 2. 启动QEMU并运行内核
+## 🚀 编译与运行指令
 
-编译成功后，使用以下命令即可在QEMU模拟器中启动并运行你的操作系统：
+本项目使用 Makefile 进行自动化构建。
+
+### 1. 编译并启动 (默认方式)
+编译代码并自动启动 QEMU 模拟器：
 ```bash
 make qemu
 ```
-程序将在此处挂起。若要退出QEMU，请按组合键 **`Ctrl+A`**，然后按 **`X`**。
+> **退出 QEMU 的方法**：先按 `Ctrl+A`，松开后快速按 `X`。
 
-### 3. 清理构建产物
+好的，这是更新后的调试模式部分，增加了具体的操作步骤，更加清晰易懂：
 
-如果你想删除所有编译生成的文件（`.o` 文件和 `.elf` 文件），恢复项目至干净状态，请运行：
-```bash
-make clean
-```
+### 2. 调试模式
+此模式用于通过 GDB 跟踪内核执行流程。请按照以下步骤操作：
 
-### 4. 使用GDB进行调试
-
-本项目已配置好GDB调试支持。
-
-第一步：在一个终端中，启动QEMU并使其暂停，等待GDB连接。
+**步骤 1：启动调试服务器**
+在一个终端窗口中运行：
 ```bash
 make qemu-gdb
 ```
+此时 QEMU 会启动并暂停执行，等待 GDB 连接（默认监听 1234 端口）。
 
-第二步：打开一个新的终端，启动GDB客户端并加载内核符号。
+**步骤 2：连接 GDB**
+打开**另一个**终端窗口，加载内核符号文件并启动 GDB：
 ```bash
 riscv64-unknown-elf-gdb kernel/kernel.elf
 ```
 
-第三步：在GDB提示符 `(gdb)` 下，连接到QEMU。
+**步骤 3：调试指令**
+进入 GDB 交互界面后，输入以下指令连接并开始调试：
 ```gdb
-target remote :1234
+(gdb) target remote :1234    # 连接到 QEMU
+(gdb) b main                 # 在 main 函数设置断点（仅作示例）
+(gdb) c                      # 继续执行 (Continue)
 ```
-连接成功后，你就可以使用GDB进行源码级调试了。
+
+### 3. 清理构建
+删除所有生成文件和内核镜像：
+```bash
+make clean
+```
