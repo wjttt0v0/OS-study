@@ -66,6 +66,27 @@ sys_sbrk(void)
   return addr;
 }
 
+uint64 sys_sleep(void) {
+  int n;
+  uint ticks0;
+  argint(0, &n);
+  if(n < 0)
+    return -1;
+
+  acquire(&tickslock);
+  ticks0 = ticks;
+  
+  while(ticks - ticks0 < n){
+    if(myproc()->killed){
+      release(&tickslock);
+      return -1;
+    }
+    sleep(&ticks, &tickslock);
+  }
+  release(&tickslock);
+  return 0;
+}
+
 uint64
 sys_pause(void)
 {
@@ -108,4 +129,38 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64 sys_shmget(void) {
+  int key;
+  argint(0, &key);
+  if (key <= 0) return -1;
+  
+  uint64 addr = shmget_impl(key);
+  if (addr == 0) return -1;
+  return addr;
+}
+
+uint64 sys_sem_create(void) {
+  int value;
+  argint(0, &value);
+  return sem_create_impl(value);
+}
+
+uint64 sys_sem_free(void) {
+  int id;
+  argint(0, &id);
+  return sem_free_impl(id);
+}
+
+uint64 sys_sem_p(void) {
+  int id;
+  argint(0, &id);
+  return sem_p_impl(id);
+}
+
+uint64 sys_sem_v(void) {
+  int id;
+  argint(0, &id);
+  return sem_v_impl(id);
 }

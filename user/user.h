@@ -24,8 +24,14 @@ int chdir(const char*);
 int dup(int);
 int getpid(void);
 char* sys_sbrk(int,int);
+int sleep(int);
 int pause(int);
 int uptime(void);
+void* shmget(int key);
+int sem_create(int value);
+int sem_free(int id);
+int sem_p(int id);
+int sem_v(int id);
 
 // ulib.c
 int stat(const char*, struct stat*);

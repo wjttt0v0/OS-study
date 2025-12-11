@@ -10,11 +10,11 @@ sub entry {
     my $prefix = "sys_";
     my $name = shift;
     if ($name eq "sbrk") {
-	print ".global $prefix$name\n";
-	print "$prefix$name:\n";
+        print ".global $prefix$name\n";
+        print "$prefix$name:\n";
     } else {
-	print ".global $name\n";
-	print "$name:\n";
+        print ".global $name\n";
+        print "$name:\n";
     }
     print " li a7, SYS_${name}\n";
     print " ecall\n";
@@ -40,5 +40,11 @@ entry("chdir");
 entry("dup");
 entry("getpid");
 entry("sbrk");
+entry("sleep");
 entry("pause");
 entry("uptime");
+entry("shmget");
+entry("sem_create");
+entry("sem_free");
+entry("sem_p");
+entry("sem_v");

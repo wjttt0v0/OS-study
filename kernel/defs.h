@@ -82,6 +82,15 @@ int             writei(struct inode*, int, uint64, uint, uint);
 void            itrunc(struct inode*);
 void            ireclaim(int);
 
+// ipc.c
+void            seminit(void);
+int             sem_create_impl(int);
+int             sem_free_impl(int);
+int             sem_p_impl(int);
+int             sem_v_impl(int);
+void            shminit(void);
+uint64          shmget_impl(int); 
+
 // kalloc.c
 void*           kalloc(void);
 void            kfree(void*);
@@ -126,6 +135,7 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+
 
 // printf.c
 void            printf(const char*, ...);

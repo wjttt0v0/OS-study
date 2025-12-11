@@ -54,7 +54,8 @@ KOBJS = \
     $(K)/log.o \
     $(K)/file.o \
     $(K)/pipe.o \
-    $(K)/sysfile.o
+    $(K)/sysfile.o \
+    $(K)/ipc.o
 
 KERNEL_ELF = $(K)/kernel.elf
 

@@ -320,7 +320,7 @@ sys_open(void)
   argint(1, &omode);
   if((n = argstr(0, path, MAXPATH)) < 0)
     return -1;
-  printf("[sys_open] path=%s, mode=%d\n", path, omode);
+  //printf("[sys_open] path=%s, mode=%d\n", path, omode);
 
   begin_op();
 
@@ -410,7 +410,7 @@ sys_mknod(void)
     return -1;
   }
 
-  printf("[sys_mknod] path=%s, major=%d, minor=%d\n", path, major, minor);
+  //printf("[sys_mknod] path=%s, major=%d, minor=%d\n", path, major, minor);
 
   iunlockput(ip);
   end_op();
