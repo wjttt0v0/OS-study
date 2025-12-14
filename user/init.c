@@ -15,7 +15,6 @@ int main() {
 
     printf("init: starting\n");
 
-    // --- 执行一次测试 ---
     int pid = fork();
     if(pid < 0){
         printf("init: fork failed\n");
