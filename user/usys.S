@@ -15,9 +15,9 @@ wait:
  li a7, SYS_wait
  ecall
  ret
-.global pipe
-pipe:
- li a7, SYS_pipe
+.global crash
+crash:
+ li a7, SYS_crash
  ecall
  ret
 .global read

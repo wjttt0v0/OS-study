@@ -5,7 +5,7 @@
 #define SYS_fork    1
 #define SYS_exit    2
 #define SYS_wait    3
-#define SYS_pipe    4
+#define SYS_crash   4
 #define SYS_read    5
 #define SYS_kill    6
 #define SYS_exec    7

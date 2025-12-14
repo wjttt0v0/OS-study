@@ -15,3 +15,5 @@ mkfs/mkfs
 .vscode/
 
 fs.img
+
+user/usys.S

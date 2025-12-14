@@ -9,7 +9,6 @@ struct buf;
 struct context;
 struct file;
 struct inode;
-struct pipe;
 struct proc;
 struct spinlock;
 struct sleeplock;
@@ -24,13 +23,6 @@ struct superblock;
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
-
-struct buf;
-struct context;
-struct file;
-struct inode;
-struct pipe;
-struct proc;
 
 // --- Function Prototypes ---
 
@@ -95,12 +87,6 @@ void            end_op(void);
 
 // main.c
 // (No public functions from main.c)
-
-// pipe.c
-int             pipealloc(struct file**, struct file**);
-void            pipeclose(struct pipe*, int);
-int             piperead(struct pipe*, uint64, int);
-int             pipewrite(struct pipe*, uint64, int);
 
 // proc.c
 int             cpuid(void);

@@ -53,21 +53,20 @@ KOBJS = \
     $(K)/fs.o \
     $(K)/log.o \
     $(K)/file.o \
-    $(K)/pipe.o \
     $(K)/sysfile.o
 
 KERNEL_ELF = $(K)/kernel.elf
 
 $(KERNEL_ELF): $(KOBJS)
-	$(LD) $(KERNEL_LDFLAGS) -o $(KERNEL_ELF) $(KOBJS)
-	$(OBJDUMP) -S $(KERNEL_ELF) > $(KERNEL_ELF).asm
-	$(OBJDUMP) -t $(KERNEL_ELF) | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(KERNEL_ELF).sym
+	@$(LD) $(KERNEL_LDFLAGS) -o $(KERNEL_ELF) $(KOBJS)
+	@$(OBJDUMP) -S $(KERNEL_ELF) > $(KERNEL_ELF).asm
+	@$(OBJDUMP) -t $(KERNEL_ELF) | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(KERNEL_ELF).sym
 
 $(K)/%.o: $(K)/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
 $(K)/%.o: $(K)/%.S
-	$(CC) -march=rv64gc -g -c -o $@ $<
+	@$(CC) -march=rv64gc -g -c -o $@ $<
 
 # ================================================================
 # User Build
@@ -88,14 +87,14 @@ $(U)/usys.S: $(U)/usys.pl
 	perl $(U)/usys.pl > $(U)/usys.S
 
 $(U)/usys.o: $(U)/usys.S
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
 $(U)/%.o: $(U)/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
 $(U)/_%: $(U)/%.o $(ULIBS)
-	$(LD) $(USER_LDFLAGS) -o $@ $< $(ULIBS)
-	$(OBJDUMP) -S $@ > $@.asm
+	@$(LD) $(USER_LDFLAGS) -o $@ $< $(ULIBS)
+	@$(OBJDUMP) -S $@ > $@.asm
 
 # ================================================================
 # mkfs
@@ -119,6 +118,8 @@ QEMUOPTS := -machine virt -bios none -kernel $K/kernel.elf -m 128M -smp $(CPUS) 
 QEMUOPTS += -global virtio-mmio.force-legacy=false
 QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+
+.PRECIOUS: $(U)/%.o $(K)/%.o
 
 all: $(KERNEL_ELF) fs.img
 

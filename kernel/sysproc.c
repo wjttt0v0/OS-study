@@ -109,3 +109,8 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64 sys_crash(void) {
+    panic("SIMULATED CRASH: Power Failure!");
+    return 0;
+}
