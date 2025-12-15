@@ -20,7 +20,7 @@ sys_exit(void)
 uint64
 sys_getpid(void)
 {
-  printf("sys_getpid called by pid %d\n", myproc()->pid);
+  //printf("sys_getpid called by pid %d\n", myproc()->pid);
   return myproc()->pid;
 }
 
