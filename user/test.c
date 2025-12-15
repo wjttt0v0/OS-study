@@ -1,122 +1,132 @@
 #include "kernel/types.h"
-#include "kernel/stat.h"
+#include "kernel/param.h"
 #include "user/user.h"
-#include "kernel/fcntl.h"
+
+#define assert(x) \
+  do { \
+    if (!(x)) { \
+      printf("Assertion failed: %s\n", #x); \
+      exit(1); \
+    } \
+  } while (0)
 
 /* ========================
- * 1. 基础系统调用测试
+ * 简单子进程任务
  * ======================== */
 void
-test_basic_syscalls(void)
+simple_task(void)
 {
-  printf("=== [1] Testing basic system calls ===\n");
-
-  // getpid
-  int pid = getpid();
-  printf("Current PID: %d\n", pid);
-
-  // fork / wait / exit
-  int child_pid = fork();
-  if (child_pid == 0) {
-    // 子进程
-    printf("Child process running, PID=%d\n", getpid());
-    exit(42);
-  } else if (child_pid > 0) {
-    // 父进程
-    int status = -1;
-    int ret = wait(&status);
-    printf("wait returned pid=%d, status=%d\n", ret, status);
-  } else {
-    printf("fork failed!\n");
-  }
-
-  printf("=== [1] Basic syscall test done ===\n\n");
+  printf("simple_task: pid=%d\n", getpid());
+  exit(0);
 }
 
 /* ========================
- * 2. 参数传递测试
+ * CPU 密集型任务
  * ======================== */
 void
-test_parameter_passing(void)
+cpu_task(void)
 {
-  printf("=== [2] Testing parameter passing ===\n");
+  volatile int x = 0;
+  for (int i = 0; i < 100000000; i++)
+    x++;
 
-  char buffer[] = "Hello, World!\n";
-
-  int fd = open("/dev/console", O_RDWR);
-  if (fd >= 0) {
-    int n = write(fd, buffer, strlen(buffer));
-    printf("write returned %d\n", n);
-    close(fd);
-  } else {
-    printf("open /dev/console failed\n");
-  }
-
-  // 边界 / 非法参数测试（期望失败）
-  int r;
-
-  r = write(-1, buffer, 10);
-  printf("write(-1, ...) = %d (expected < 0)\n", r);
-
-  r = write(1, 0, 10);
-  printf("write(fd, NULL, ...) = %d (expected < 0)\n", r);
-
-  r = write(1, buffer, -1);
-  printf("write(fd, buf, -1) = %d (expected < 0)\n", r);
-
-  printf("=== [2] Parameter passing test done ===\n\n");
+  printf("cpu_task done: pid=%d\n", getpid());
+  exit(0);
 }
 
 /* ========================
- * 3. 安全性测试
+ * 1. 进程创建测试
  * ======================== */
 void
-test_security(void)
+test_process_creation(void)
 {
-  printf("=== [3] Testing security checks ===\n");
+  printf("=== [1] Process creation test ===\n");
 
-  // 非法用户指针（指向内核或未映射区域）
-  char *invalid_ptr = (char*)0x1000000;
-  int r = write(1, invalid_ptr, 10);
-  printf("write(invalid_ptr) = %d (expected < 0)\n", r);
+  int pid = fork();
+  if (pid == 0)
+    simple_task();
 
-  printf("=== [3] Security test done ===\n\n");
+  assert(pid > 0);
+  wait(0);
+
+  int count = 0;
+  for (int i = 0; i < NPROC + 5; i++) {
+    int cpid = fork();
+    if (cpid < 0)
+      break;
+    if (cpid == 0)
+      simple_task();
+    count++;
+  }
+
+  printf("Created %d processes before failure\n", count);
+
+  for (int i = 0; i < count; i++)
+    wait(0);
+
+  printf("=== [1] Done ===\n\n");
 }
 
 /* ========================
- * 4. 性能测试
+ * 2. 调度器测试（无 IPC）
  * ======================== */
 void
-test_syscall_performance(void)
+test_scheduler(void)
 {
-  printf("=== [4] Testing syscall performance ===\n");
+  printf("=== [2] Scheduler test ===\n");
 
-  uint64 start = uptime();
-
-  for (int i = 0; i < 10000; i++) {
-    getpid();
+  for (int i = 0; i < 3; i++) {
+    if (fork() == 0)
+      cpu_task();
   }
 
-  uint64 end = uptime();
-  printf("10000 getpid() calls took %d ticks\n", (int)(end - start));
+  uint start = uptime();
 
-  printf("=== [4] Performance test done ===\n\n");
+  for (int i = 0; i < 3; i++)
+    wait(0);
+
+  uint end = uptime();
+
+  printf("Scheduler ran 3 CPU tasks in %d ticks\n", end - start);
+  printf("=== [2] Done ===\n\n");
+}
+
+/* ========================
+ * 3. wait / sleep 行为测试
+ * ======================== */
+void
+test_wait_and_sleep(void)
+{
+  printf("=== [3] wait & sleep test ===\n");
+
+  int pid = fork();
+  if (pid == 0) {
+    sleep(50);
+    exit(0);
+  }
+
+  uint start = uptime();
+  wait(0);
+  uint end = uptime();
+
+  printf("Child slept ~50 ticks, observed %d ticks\n", end - start);
+  assert(end - start >= 50);
+
+  printf("=== [3] Done ===\n\n");
 }
 
 /* ========================
  * main
  * ======================== */
 int
-main(int argc, char *argv[])
+main(void)
 {
-  printf("\n===== User Test Program Started =====\n\n");
+  printf("\n===== Process / Scheduler Tests (No IPC) =====\n\n");
 
-  test_basic_syscalls();
-  test_parameter_passing();
-  test_security();
-  test_syscall_performance();
+  test_process_creation();
+  test_scheduler();
+  test_wait_and_sleep();
 
   printf("===== All tests finished =====\n");
-  for (;;) ;
   exit(0);
 }

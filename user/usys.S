@@ -95,6 +95,11 @@ sys_sbrk:
  li a7, SYS_sbrk
  ecall
  ret
+.global sleep
+sleep:
+ li a7, SYS_sleep
+ ecall
+ ret
 .global pause
 pause:
  li a7, SYS_pause

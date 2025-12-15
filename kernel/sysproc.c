@@ -66,6 +66,27 @@ sys_sbrk(void)
   return addr;
 }
 
+uint64 sys_sleep(void) {
+  int n;
+  uint ticks0;
+  argint(0, &n);
+  if(n < 0)
+    return -1;
+
+  acquire(&tickslock);
+  ticks0 = ticks;
+  
+  while(ticks - ticks0 < n){
+    if(myproc()->killed){
+      release(&tickslock);
+      return -1;
+    }
+    sleep(&ticks, &tickslock);
+  }
+  release(&tickslock);
+  return 0;
+}
+
 uint64
 sys_pause(void)
 {
