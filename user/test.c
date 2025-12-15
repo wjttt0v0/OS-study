@@ -188,7 +188,7 @@ void test_crash_recovery(void) {
         close(fd);
         // 清理现场
         unlink("crash_marker");
-        printf("Crash recovery test passed!\n");
+        printf("Crash recovery test passed!\n\n");
     }
 }
 
