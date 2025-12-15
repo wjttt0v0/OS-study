@@ -76,6 +76,7 @@ test_security(void)
   printf("=== [3] Testing security checks ===\n");
 
   // 非法用户指针（指向内核或未映射区域）
+  
   char *invalid_ptr = (char*)0x1000000;
   int r = write(1, invalid_ptr, 10);
   printf("write(invalid_ptr) = %d (expected = 0)\n", r);
